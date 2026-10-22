@@ -85,7 +85,18 @@ class _ConnectionLabPageState extends State<ConnectionLabPage>
         '${t.inMinutes.toString().padLeft(2, '0')}:'
         '${(t.inSeconds % 60).toString().padLeft(2, '0')}.'
         '${(t.inMilliseconds % 1000).toString().padLeft(3, '0')}';
-    setState(() => _log.insert(0, '$stamp  ${sanitizeForLog(line)}'));
+    final entry = '$stamp  ${sanitizeForLog(line)}';
+    _toLogcat(entry);
+    setState(() => _log.insert(0, entry));
+  }
+
+  /// Também no logcat (tag `flutter`), para ler resultados por `adb logcat`
+  /// sem copiar da tela. O texto já está saneado.
+  static void _toLogcat(String text) {
+    for (final l in text.split('\n')) {
+      // ignore: avoid_print
+      print('APPMUSICA_LAB $l');
+    }
   }
 
   Future<void> _host() async {
@@ -206,7 +217,9 @@ class _ConnectionLabPageState extends State<ConnectionLabPage>
           p.stats!.csv(),
         ],
     ].join('\n');
-    Clipboard.setData(ClipboardData(text: sanitizeForLog(text)));
+    final clean = sanitizeForLog(text);
+    Clipboard.setData(ClipboardData(text: clean));
+    _toLogcat('MONITOR_INICIO\n$clean\nMONITOR_FIM');
     _add('resultado do monitor copiado');
   }
 
