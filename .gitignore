@@ -92,3 +92,6 @@ docs/fase0/evidencias/gravacoes/
 
 # Claude Code (configuração local)
 .claude/settings.local.json
+
+# Workspace local do superpowers (ledger de execução)
+.superpowers/
