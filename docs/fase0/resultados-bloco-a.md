@@ -72,15 +72,41 @@ As mensagens mostradas ao usuário e o log não incluem IPs. Erros não tratados
 **Conclusão parcial:** com a tela apagada por 2 min nos dois modelos, e por ~45 min no A53, a conexão continuou sem nenhuma falha de ping, o serviço em primeiro plano ficou ativo e o timer do app não atrasou (envios a cada 2,0 s). O RTT com a tela apagada teve picos (até 405 ms no A53), sem perda.
 
 **Ressalvas:**
-- A depuração sem fio (adb por Wi-Fi) estava ligada nos dois aparelhos e tende a manter o Wi-Fi mais acordado. Falta confirmar o mesmo resultado com a depuração desligada.
+- A depuração sem fio (adb por Wi-Fi) estava ligada nos dois aparelhos neste teste. Resultado confirmado depois sem ela (seção abaixo).
 - Otimização de bateria no padrão (ativa); não foi preciso desativá-la. O período longo (~45 min) foi medido só com o A53 apagado e com a depuração sem fio ligada.
 - O RTT do monitor (~30–70 ms) é maior que o do teste isolado (14–16 ms) porque os dois monitores e as leituras de tela por adb rodavam juntos.
+
+### Repetição sem depuração sem fio (2026-10-22, conduzida pelo dono do projeto)
+
+Mesmos aparelhos e rede, **depuração sem fio desligada**, otimização de bateria no padrão (ativa), S25 anfitrião e A53 convidado. O teste com o A53 como anfitrião foi dispensado pelo dono do projeto.
+
+**Conexão e 1 MiB**
+
+| Sentido | Conectou em | Par ICE | RTT | 1 MiB | Integridade |
+|---|---|---|---|---|---|
+| S25 → A53 | 558 ms (S25) / 495 ms (A53) | prflx/prflx | 17 ms | 208 ms (4,8 MB/s) | SHA-256 confere |
+| A53 → S25 | (mesma conexão) | prflx/prflx | 8 ms | 135 ms (7,4 MB/s) | SHA-256 confere |
+
+**Monitor contínuo (um ping a cada 2 s, prazo de 3 s)**
+
+| Teste | Medido por | Pings | Falhas | Tela apagada confirmada | RTT mediano | RTT máx. | Maior intervalo sem resposta | Maior atraso entre envios | Serviço ativo |
+|---|---|---|---|---|---|---|---|---|---|
+| Tela do S25 apagada ~2 min | S25 | 75 | 0 | 130 s (65 respostas, 0 falhas) | 28 ms | 71 ms | 2,0 s | 2,0 s | sempre |
+| Tela do S25 apagada ~2 min | A53 | 74 | 0 | — | 19 ms | 107 ms | 2,0 s | 2,0 s | sempre |
+| Tela do A53 apagada ~2 min | S25 | 72 | 0 | — | 111 ms | 348 ms | 2,0 s | 2,0 s | sempre |
+| Tela do A53 apagada ~2 min | A53 | 72 | 0 | 134 s (67 respostas, 0 falhas) | 77 ms | 277 ms | 2,0 s | 2,0 s | sempre |
+| **As duas telas apagadas ~31 min** | S25 | 944 | 0 | 1846 s (923 respostas, 0 falhas) | 25 ms | 715 ms | 2,0 s | 2,0 s | sempre |
+| **As duas telas apagadas ~31 min** | A53 | 945 | 0 | 1843 s (921 respostas, 0 falhas) | 44 ms | 330 ms | 2,0 s | 2,0 s | sempre |
+
+**Conclusão:** sem a depuração sem fio, o resultado se mantém. Com a tela apagada (2 min em cada aparelho e ~31 min nos dois ao mesmo tempo), **nenhum ping falhou** em 2.182 pings, o serviço em primeiro plano ficou ativo e o timer do app não atrasou. O RTT sobe com a tela apagada (picos de até 715 ms), sem perda de mensagens. A ressalva sobre a depuração sem fio está resolvida.
+
+**Bug encontrado neste teste:** ao tocar em "Encerrar" no S25, `HttpException: HttpServer is not bound to a socket` (a tela lia a porta de um servidor já fechado). Corrigido com teste de regressão. O log também mostrou "serviço em primeiro plano: já ativo" ao abrir a sala: era um serviço que sobrou de uma sessão anterior; o lab agora o encerra ao abrir.
 
 ## Resultados simulados
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
-| `test/jam/signaling/*` | Código da sala, limite de 5, prazo do hello, 64 KiB, bloqueio após 5 códigos errados, roteamento só convidado ↔ anfitrião, validação de IP/porta/código, erros `refused`, `timeout`, `port_in_use`, mensagens sem IP (servidor LAN real em 127.0.0.1, sem WebRTC) | 27/27 |
+| `test/jam/signaling/*` | Porta legível após encerrar, código da sala, limite de 5, prazo do hello, 64 KiB, bloqueio após 5 códigos errados, roteamento só convidado ↔ anfitrião, validação de IP/porta/código, erros `refused`, `timeout`, `port_in_use`, mensagens sem IP (servidor LAN real em 127.0.0.1, sem WebRTC) | 28/28 |
 | `test/jam/transport/*` | `MemoryPeerLink` (queda, reconexão, corrupção, buffer) e negociação da `PeerLinkFactory` com sessão falsa | 11/11 |
 | `test/player/*` | Fila de reprodução | 6/6 |
 | `test/metrics/*` | Saneamento de IPv4, IPv6, caminhos, e-mails e stack traces | 6/6 |
@@ -93,4 +119,6 @@ As mensagens mostradas ao usuário e o log não incluem IPs. Erros não tratados
 3. Ao cair um canal depois de conectado, o link voltava para "conectando" em vez de "desconectado". Corrigido.
 4. A tela do laboratório tentava redesenhar depois de fechada. Corrigido.
 5. O teste de integração WebRTC chegou a ficar 10 minutos travado (aguardava um link já perdido, sem prazo). Agora todo teste de integração tem limite de 2 minutos e as esperas internas têm prazo próprio.
-6. Testes de integração no Windows rodados em sequência imediata às vezes falham por erro de arquivo temporário da ferramenta do Flutter, antes de o teste começar. Não é falha do app; esperar alguns segundos entre execuções resolve.
+6. Ao encerrar a sala no S25: `HttpException: HttpServer is not bound to a socket`. Corrigido (porta guardada ao abrir), com teste de regressão.
+7. Serviço em primeiro plano de sessão anterior continuava ativo ao abrir nova sala. O lab agora o encerra ao abrir.
+8. Testes de integração no Windows rodados em sequência imediata às vezes falham por erro de arquivo temporário da ferramenta do Flutter, antes de o teste começar. Não é falha do app; esperar alguns segundos entre execuções resolve.
