@@ -53,6 +53,13 @@
 
 **Anfitrião Android com a tela desligada.** O servidor LAN e as conexões WebRTC do anfitrião rodam dentro de um serviço em primeiro plano. Durante a reprodução, o serviço `mediaPlayback` do `audio_service` mantém o processo vivo. Sem música tocando (testes de transferência), o lab inicia um serviço em primeiro plano do tipo `dataSync` com notificação visível. As restrições de rede local e de segundo plano das versões do S25 e do A53 são verificadas no M2 e registradas.
 
+**Rede local e segundo plano no Android (pesquisa de 2026-10-22, a confirmar no M2).**
+- O S25 está recebendo a One UI 9 (Android 17). A versão do A53 ainda não foi confirmada; provavelmente Android 16.
+- O Android 17 bloqueia acesso à rede local para apps com `targetSdk` **37 ou mais**, que precisam declarar e pedir `ACCESS_LOCAL_NETWORK` em tempo de execução. Apps com `targetSdk` abaixo de 37 recebem acesso implícito pela permissão `INTERNET`.
+- O AppMusica usa o `targetSdk` padrão do Flutter 3.47.2, que é **36**. Na Fase 0, o acesso à LAN funciona sem pedir permissão. Ao subir para 37, será preciso declarar `ACCESS_LOCAL_NETWORK` e pedi-la antes de abrir o servidor ou conectar. Isso fica registrado como pendência da Fase 2.
+- No Android 15 ou superior, serviços em primeiro plano do tipo `dataSync` têm limite de **6 h a cada 24 h**. Para o lab, isso basta. Na Jam real, o anfitrião normalmente está tocando música, então usa o serviço `mediaPlayback`, que não tem esse limite.
+- Se o Doze corta a rede de um app com serviço em primeiro plano é verificado no teste "S25 anfitrião com tela desligada por 2 min" da Task 0B.
+
 **Simulado × real.** Toda linha JSONL ganha o campo `"source": "simulated" | "device"`. Testes sobre `MemoryPeerLink` só produzem `simulated` e nunca entram nas tabelas de resultado reais; `resultados-bloco-a.md` separa as duas origens em seções diferentes.
 
 **Retomada e integridade (reforço da Task 10).** O `.state` é gravado em arquivo temporário e renomeado (escrita atômica), nunca sobrescrito no lugar. Um arquivo só sai de `.part` para o nome final depois do SHA-256 conferir; `lookup` nunca devolve `.part`. Testes adicionais: `state corrompido ou truncado é descartado e a transferência recomeça`, `lookup não devolve arquivo parcial`, `processo encerrado entre gravar bloco e salvar state não marca bloco não gravado`.
