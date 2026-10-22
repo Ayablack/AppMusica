@@ -12,11 +12,16 @@ import '../jam/signaling/signaling_channel.dart';
 import '../jam/transport/peer_link.dart';
 import '../jam/transport/peer_link_factory.dart';
 import '../jam/transport/webrtc_peer_link.dart';
+import '../metrics/sanitize.dart';
 import 'keep_alive.dart';
+import 'lab_errors.dart';
+import 'ping_monitor.dart';
+import 'screen_state.dart';
 
 /// Task 0B — prova mínima de conexão real entre aparelhos (descartável).
 ///
-/// O log da tela nunca mostra IPs nem caminhos; pode ser copiado e colado.
+/// Toda linha do log passa por [sanitizeForLog]: o log pode ser copiado e
+/// colado sem expor IPs, caminhos ou e-mails.
 class ConnectionLabPage extends StatefulWidget {
   const ConnectionLabPage({super.key});
 
@@ -24,7 +29,8 @@ class ConnectionLabPage extends StatefulWidget {
   State<ConnectionLabPage> createState() => _ConnectionLabPageState();
 }
 
-class _ConnectionLabPageState extends State<ConnectionLabPage> {
+class _ConnectionLabPageState extends State<ConnectionLabPage>
+    with WidgetsBindingObserver {
   final _hostField = TextEditingController();
   final _portField = TextEditingController(
     text: '${LanSignalingServer.defaultPort}',
@@ -32,15 +38,15 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
   final _codeField = TextEditingController();
   final _clock = Stopwatch()..start();
   final _log = <String>[];
-  final _links = <PeerLink>[];
   final _probes = <String, _Probe>{};
 
   LanSignalingServer? _server;
   SignalingChannel? _signal;
   PeerLinkFactory? _factory;
-  List<String> _addresses = const [];
-  Timer? _monitor;
+  List<({String interface, String address})> _addresses = const [];
+  bool _monitoring = false;
   bool _busy = false;
+  int _errorsShown = 0;
 
   bool get _active => _factory != null;
 
@@ -54,13 +60,32 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
     }
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    LabErrors.lines.addListener(_onUnhandledError);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) =>
+      _add('app: ${state.name}');
+
+  void _onUnhandledError() {
+    final all = LabErrors.lines.value;
+    for (final line in all.skip(_errorsShown)) {
+      _add(line);
+    }
+    _errorsShown = all.length;
+  }
+
   void _add(String line) {
     final t = _clock.elapsed;
     final stamp =
         '${t.inMinutes.toString().padLeft(2, '0')}:'
         '${(t.inSeconds % 60).toString().padLeft(2, '0')}.'
         '${(t.inMilliseconds % 1000).toString().padLeft(3, '0')}';
-    setState(() => _log.insert(0, '$stamp  $line'));
+    setState(() => _log.insert(0, '$stamp  ${sanitizeForLog(line)}'));
   }
 
   Future<void> _host() async {
@@ -70,11 +95,15 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
       _server = server;
       _addresses = await LanSignalingServer.localAddresses();
       _add('anfitrião: sala aberta, código ${server.roomCode}');
+      _add(
+        'interfaces de rede: ${_addresses.map((a) => a.interface).join(', ')}',
+      );
       _attach(server.hostChannel, autoConnect: true);
-      _add(await JamKeepAlive.start('Anfitrião da sala ${server.roomCode}'));
-      _add(await JamKeepAlive.batteryStatus());
-    } on Object catch (e) {
-      _add('ERRO ao abrir sala: ${e.runtimeType}');
+      await _startKeepAlive('Anfitrião da sala ${server.roomCode}');
+    } on SignalingServerFailed catch (e) {
+      _add('ERRO ao abrir sala [${e.code}]: ${e.message}');
+    } on Object catch (e, st) {
+      _add('ERRO ao abrir sala: ${describeError(e, st)}');
     } finally {
       setState(() => _busy = false);
     }
@@ -85,26 +114,33 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
     try {
       final signal = await LanSignalingClient.connect(
         host: _hostField.text.trim(),
-        port: int.parse(_portField.text.trim()),
+        port: int.tryParse(_portField.text.trim()) ?? 0,
         roomCode: _codeField.text.trim().toUpperCase(),
       );
       _add('convidado: entrou na sala como ${signal.selfId}');
       _attach(signal, autoConnect: false);
-      _add(await JamKeepAlive.start('Convidado na Jam'));
-      _add(await JamKeepAlive.batteryStatus());
+      await _startKeepAlive('Convidado na Jam');
+    } on SignalingConnectionFailed catch (e) {
+      _add('NÃO CONECTOU [${e.code}]: ${e.message}');
     } on SignalingRejected catch (e) {
-      _add('RECUSADO pelo anfitrião: ${e.reason}');
-    } on Object catch (e) {
-      _add('ERRO ao entrar: ${e.runtimeType}');
+      _add('RECUSADO pelo anfitrião [${e.reason}]: ${e.message}');
+    } on Object catch (e, st) {
+      _add('ERRO ao entrar: ${describeError(e, st)}');
     } finally {
       setState(() => _busy = false);
     }
+  }
+
+  Future<void> _startKeepAlive(String text) async {
+    _add(await JamKeepAlive.start(text));
+    _add(await JamKeepAlive.batteryStatus());
   }
 
   void _attach(SignalingChannel signal, {required bool autoConnect}) {
     _signal = signal;
     signal.messages.listen(
       (m) => _add('sinalização: ${m.type.name} de ${m.from}'),
+      onDone: () => _add('sinalização encerrada'),
     );
     final factory = PeerLinkFactory(
       signal,
@@ -119,16 +155,20 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
 
   void _onLink(PeerLink link) {
     final started = _clock.elapsed;
-    _links.add(link);
     final probe = _probes[link.remoteId] = _Probe(link, _add);
     _add('${link.remoteId}: negociando conexão');
     link.stateStream.listen((s) async {
       _add('${link.remoteId}: ${s.name}');
       if (s == PeerLinkState.connected) {
         final ms = (_clock.elapsed - started).inMilliseconds;
-        final pair = await link.selectedCandidatePairType();
-        probe.pairType = pair;
-        _add('${link.remoteId}: CONECTADO em $ms ms, par ICE $pair');
+        try {
+          probe.pairType = await link.selectedCandidatePairType();
+        } on Object catch (e, st) {
+          _add('${link.remoteId}: getStats falhou: ${describeError(e, st)}');
+        }
+        _add(
+          '${link.remoteId}: CONECTADO em $ms ms, par ICE ${probe.pairType}',
+        );
       }
       setState(() {});
     });
@@ -142,28 +182,36 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
   }
 
   void _toggleMonitor(bool on) {
-    _monitor?.cancel();
-    _monitor = null;
+    setState(() => _monitoring = on);
     if (on) {
+      _add('monitor ligado: um ping a cada 2 s por convidado, prazo de 3 s');
       for (final p in _probes.values) {
-        p.resetMonitor();
+        p.monitor(() => _monitoring, () => setState(() {}));
       }
-      _monitor = Timer.periodic(const Duration(seconds: 2), (_) {
-        for (final p in _probes.values) {
-          p.heartbeat();
-        }
-        setState(() {});
-      });
-      _add('monitor ligado: ping a cada 2 s');
     } else {
       _add('monitor desligado');
+      for (final p in _probes.values) {
+        final stats = p.stats;
+        if (stats != null) _add('${p.link.remoteId}: ${stats.summary()}');
+      }
     }
-    setState(() {});
+  }
+
+  void _copyMonitor() {
+    final text = [
+      for (final p in _probes.values)
+        if (p.stats != null) ...[
+          '== ${p.link.remoteId} (par ICE ${p.pairType}) ==',
+          p.stats!.summary(),
+          p.stats!.csv(),
+        ],
+    ].join('\n');
+    Clipboard.setData(ClipboardData(text: sanitizeForLog(text)));
+    _add('resultado do monitor copiado');
   }
 
   Future<void> _stop() async {
-    _monitor?.cancel();
-    _monitor = null;
+    _monitoring = false;
     await _factory?.dispose();
     if (_server == null) await _signal?.close();
     await _server?.stop();
@@ -171,13 +219,14 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
     _factory = null;
     _server = null;
     _signal = null;
-    _links.clear();
     _probes.clear();
     _add('sessão encerrada');
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    LabErrors.lines.removeListener(_onUnhandledError);
     _stop();
     super.dispose();
   }
@@ -199,8 +248,13 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
             Text('Entrar numa sala', style: text.titleMedium),
             TextField(
               controller: _hostField,
-              decoration: const InputDecoration(labelText: 'IP do anfitrião'),
-              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'IP do anfitrião',
+                hintText: 'o IP da linha Wi-Fi na tela do anfitrião',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             TextField(
               controller: _portField,
@@ -220,10 +274,13 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
           ],
           if (_server != null) ...[
             Text('Sala aberta', style: text.titleMedium),
+            for (final a in _addresses)
+              SelectableText(
+                '${a.address}   (${a.interface})',
+                style: text.titleLarge,
+              ),
             SelectableText(
-              'IP: ${_addresses.join('  ou  ')}\n'
-              'Porta: ${_server!.port}\n'
-              'Código: ${_server!.roomCode}',
+              'Porta: ${_server!.port}\nCódigo: ${_server!.roomCode}',
               style: text.titleLarge,
             ),
           ],
@@ -246,8 +303,12 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
                 ),
                 FilterChip(
                   label: const Text('Monitor contínuo'),
-                  selected: _monitor != null,
+                  selected: _monitoring,
                   onSelected: _toggleMonitor,
+                ),
+                OutlinedButton(
+                  onPressed: _copyMonitor,
+                  child: const Text('Copiar resultado do monitor'),
                 ),
                 if (JamKeepAlive.supported)
                   OutlinedButton(
@@ -290,13 +351,17 @@ class _Probe {
     link.dataMessages.listen(_onData);
   }
 
+  static const _pingTimeout = Duration(seconds: 3);
+  static const _monitorInterval = Duration(seconds: 2);
+
   final PeerLink link;
   final void Function(String) log;
   final _clock = Stopwatch()..start();
-  final _pending = <int, Completer<int>>{};
+  final _pending = <int, Completer<void>>{};
   int _nextId = 0;
   String? pairType;
   String result = '';
+  PingMonitorStats? stats;
 
   // Recepção de 1 MiB.
   BytesBuilder? _incoming;
@@ -305,26 +370,54 @@ class _Probe {
   final _incomingClock = Stopwatch();
   Completer<Map<String, Object?>>? _blobAck;
 
-  // Monitor.
-  int _sent = 0, _answered = 0;
-  Duration _lastPong = Duration.zero, _maxGap = Duration.zero;
+  String get summary => [
+    'par ICE: ${pairType ?? '?'}',
+    if (result.isNotEmpty) result,
+    if (stats != null) stats!.summary(),
+  ].join('\n');
 
-  String get summary =>
-      'par ICE: ${pairType ?? '?'}\n$result'
-      '${_sent > 0 ? '\nmonitor: $_answered/$_sent respostas, maior intervalo sem resposta ${(_maxGap.inMilliseconds / 1000).toStringAsFixed(1)} s' : ''}';
-
+  /// RTT em ms, ou nulo sem resposta no prazo.
   Future<int?> _ping() async {
     final id = _nextId++;
-    final c = _pending[id] = Completer<int>();
+    final c = _pending[id] = Completer<void>();
     final t0 = _clock.elapsedMicroseconds;
-    await link.sendCtrl({'t': 'ping', 'id': id});
     try {
-      await c.future.timeout(const Duration(seconds: 3));
+      await link.sendCtrl({'t': 'ping', 'id': id});
+      await c.future.timeout(_pingTimeout);
       return (_clock.elapsedMicroseconds - t0) ~/ 1000;
     } on TimeoutException {
       return null;
     } finally {
       _pending.remove(id);
+    }
+  }
+
+  /// Pings em sequência (um termina antes do próximo), para que atraso de
+  /// timer com a tela apagada apareça como intervalo maior entre envios.
+  Future<void> monitor(bool Function() active, void Function() refresh) async {
+    final s = stats = PingMonitorStats(start: _clock.elapsed);
+    bool? lastScreen;
+    while (active() && link.state != PeerLinkState.closed) {
+      final at = _clock.elapsed;
+      final screenOn = await ScreenState.isOn();
+      final service = await JamKeepAlive.isRunning();
+      if (screenOn != null && screenOn != lastScreen) {
+        log('${link.remoteId}: tela ${screenOn ? 'ACESA' : 'APAGADA'}');
+        lastScreen = screenOn;
+      }
+      final rtt = await _ping();
+      s.record(
+        PingSample(
+          at: at,
+          rttMs: rtt,
+          screenOn: screenOn,
+          serviceRunning: service,
+        ),
+      );
+      if (rtt == null) log('${link.remoteId}: ping sem resposta');
+      refresh();
+      final wait = _monitorInterval - (_clock.elapsed - at);
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
     }
   }
 
@@ -369,36 +462,13 @@ class _Probe {
     log('${link.remoteId}: teste → RTT $rtt; 1 MiB $blobResult');
   }
 
-  void resetMonitor() {
-    _sent = 0;
-    _answered = 0;
-    _maxGap = Duration.zero;
-    _lastPong = _clock.elapsed;
-  }
-
-  void heartbeat() {
-    _sent++;
-    final id = _nextId++;
-    final c = _pending[id] = Completer<int>();
-    link.sendCtrl({'t': 'ping', 'id': id});
-    c.future
-        .then((_) {
-          _answered++;
-          final now = _clock.elapsed;
-          final gap = now - _lastPong;
-          if (gap > _maxGap) _maxGap = gap;
-          _lastPong = now;
-        })
-        .timeout(const Duration(seconds: 10), onTimeout: () {})
-        .whenComplete(() => _pending.remove(id));
-  }
-
   void _onCtrl(Map<String, Object?> m) {
     switch (m['t']) {
       case 'ping':
         link.sendCtrl({'t': 'pong', 'id': m['id']});
       case 'pong':
-        _pending[m['id']]?.complete(0);
+        final c = _pending[m['id']];
+        if (c != null && !c.isCompleted) c.complete();
       case 'blob':
         _incoming = BytesBuilder(copy: false);
         _expected = m['size'] as int;
@@ -407,7 +477,8 @@ class _Probe {
           ..reset()
           ..start();
       case 'blob_ok':
-        _blobAck?.complete(m);
+        final ack = _blobAck;
+        if (ack != null && !ack.isCompleted) ack.complete(m);
     }
   }
 

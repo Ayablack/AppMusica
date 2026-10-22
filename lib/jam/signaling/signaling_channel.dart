@@ -23,8 +23,42 @@ class SignalingRejected implements Exception {
   /// `bad_code`, `full`, `blocked` ou `protocol`.
   final String reason;
 
+  String get message => switch (reason) {
+    'bad_code' => 'Código da sala incorreto.',
+    'full' => 'A sala está cheia (máximo de 5 participantes).',
+    'blocked' =>
+      'Muitas tentativas com código errado. Aguarde 1 minuto e tente de novo.',
+    _ => 'O anfitrião recusou a conexão por erro de protocolo.',
+  };
+
   @override
   String toString() => 'SignalingRejected($reason)';
+}
+
+/// Falha ao alcançar o canal de sinalização. [message] é para o usuário e
+/// nunca contém IPs ou caminhos.
+class SignalingConnectionFailed implements Exception {
+  SignalingConnectionFailed(this.code, this.message);
+
+  /// `invalid_address`, `invalid_port`, `invalid_code`, `refused`,
+  /// `timeout`, `unreachable`, `network_blocked`, `not_appmusica`, `unknown`.
+  final String code;
+  final String message;
+
+  @override
+  String toString() => 'SignalingConnectionFailed($code): $message';
+}
+
+/// Falha ao abrir a sala no anfitrião.
+class SignalingServerFailed implements Exception {
+  SignalingServerFailed(this.code, this.message);
+
+  /// `port_in_use` ou `bind_failed`.
+  final String code;
+  final String message;
+
+  @override
+  String toString() => 'SignalingServerFailed($code): $message';
 }
 
 /// Broadcast que guarda as mensagens até o primeiro ouvinte, para que nada

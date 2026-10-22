@@ -57,7 +57,12 @@ class LanSignalingServer {
     Duration helloTimeout = const Duration(seconds: 5),
     DateTime Function()? clock,
   }) async {
-    final http = await HttpServer.bind(InternetAddress.anyIPv4, port);
+    final HttpServer http;
+    try {
+      http = await HttpServer.bind(InternetAddress.anyIPv4, port);
+    } on SocketException catch (e) {
+      throw _describeBindError(e, port);
+    }
     final server = LanSignalingServer._(
       http,
       generateRoomCode(),
@@ -69,16 +74,43 @@ class LanSignalingServer {
     return server;
   }
 
-  /// IPv4 locais para mostrar na tela do anfitrião. Nunca vão para logs.
-  static Future<List<String>> localAddresses() async {
+  // EADDRINUSE: Linux/Android, macOS, Windows. O Windows às vezes informa -1.
+  static const _inUse = {98, 48, 10048, -1};
+
+  static SignalingServerFailed _describeBindError(SocketException e, int port) {
+    final code = e.osError?.errorCode;
+    if (_inUse.contains(code)) {
+      return SignalingServerFailed(
+        'port_in_use',
+        'A porta $port já está em uso. Feche outra sala aberta neste aparelho '
+            'ou espere alguns segundos e tente de novo.',
+      );
+    }
+    return SignalingServerFailed(
+      'bind_failed',
+      'Não foi possível abrir a sala (código do sistema $code).',
+    );
+  }
+
+  /// IPv4 locais com o nome da interface, Wi-Fi primeiro, para mostrar na
+  /// tela do anfitrião. Nunca vão para logs.
+  static Future<List<({String interface, String address})>>
+  localAddresses() async {
     final interfaces = await NetworkInterface.list(
       type: InternetAddressType.IPv4,
     );
-    return [
+    bool wifi(String n) =>
+        n.startsWith('wlan') || n.toLowerCase().contains('wi-fi');
+    final list = [
       for (final i in interfaces)
         for (final a in i.addresses)
-          if (!a.isLoopback) a.address,
+          if (!a.isLoopback) (interface: i.name, address: a.address),
     ];
+    list.sort(
+      (a, b) =>
+          (wifi(a.interface) ? 0 : 1).compareTo(wifi(b.interface) ? 0 : 1),
+    );
+    return list;
   }
 
   Future<void> _onRequest(HttpRequest request) async {

@@ -47,6 +47,10 @@ class JamKeepAlive {
     }
   }
 
+  /// Nulo onde não se aplica (Windows).
+  static Future<bool?> isRunning() async =>
+      supported ? FlutterForegroundTask.isRunningService : null;
+
   static Future<String> batteryStatus() async {
     if (!supported) return 'otimização de bateria: não se aplica';
     final ignoring = await FlutterForegroundTask.isIgnoringBatteryOptimizations;

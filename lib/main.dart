@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'lab/connection_lab_page.dart';
+import 'lab/lab_errors.dart';
 
 void main() {
+  LabErrors.install();
   runApp(const AppMusica());
 }
 
