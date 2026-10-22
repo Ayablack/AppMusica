@@ -102,15 +102,37 @@ Mesmos aparelhos e rede, **depuração sem fio desligada**, otimização de bate
 
 **Bug encontrado neste teste:** ao tocar em "Encerrar" no S25, `HttpException: HttpServer is not bound to a socket` (a tela lia a porta de um servidor já fechado). Corrigido com teste de regressão. O log também mostrou "serviço em primeiro plano: já ativo" ao abrir a sala: era um serviço que sobrou de uma sessão anterior; o lab agora o encerra ao abrir.
 
+### M3.1 — Player local no Windows (2026-10-22, PC de desenvolvimento)
+
+`JustAudioLocalPlayer` real (just_audio + libmpv), teste `integration_test/player_engine_test.dart`. Arquivos gerados com ffmpeg: seno de 1 kHz, 60 s; faixas curtas de 3 s; um arquivo `.mp3` com bytes aleatórios.
+
+**Fila:** `curta_a` → `corrompido` → `curta_b` tocou em ordem; o arquivo corrompido virou status `error` em **76 ms** e foi pulado; a fila terminou em `completed`.
+
+**Seek** (10 seeks pausado e 10 tocando por formato). Todas as medidas usam a posição **informada pelo player**: são latência e coerência da API, **não precisão acústica**.
+
+| Formato | Latência da API p50 / p95 / máx. | Acomodar p95 pausado / tocando | Erro da posição p95 | Taxa a 1,02× |
+|---|---|---|---|---|
+| WAV | 1 / 2 / 34 ms | 34 / 14 ms | 0 ms | 1,0198 |
+| MP3 CBR | 1 / 4 / 31 ms | 31 / 15 ms | 0 ms | 1,0201 |
+| MP3 VBR | 1 / 4 / 4 ms | 2 / 16 ms | 0 ms | 1,0200 |
+| FLAC | 2 / 13 / 30 ms | 30 / 27 ms | 0 ms | 1,0199 |
+| M4A | 1 / 5 / 74 ms | 74 / 20 ms | 0 ms | 1,0200 |
+
+Critérios: latência da API p95 ≤ 100 ms ✔, acomodar p95 ≤ 250 ms ✔, erro da posição p95 ≤ 50 ms ✔, taxa entre 1,00 e 1,04 ✔.
+
+**Bug encontrado:** no `just_audio_media_kit` 2.1.0, carregar um arquivo que o libmpv recusa nunca terminava (o `load` espera um evento de duração que não chega), e o player ficava em `loading` para sempre. O `JustAudioEngine` agora falha a carga quando o estado cai de `loading` para `idle`, quando chega erro, ou após 10 s.
+
+**Pendente:** o mesmo motor no Android (ExoPlayer) é validado nos aparelhos no M3.2.
+
 ## Resultados simulados
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
 | `test/jam/signaling/*` | Porta legível após encerrar, código da sala, limite de 5, prazo do hello, 64 KiB, bloqueio após 5 códigos errados, roteamento só convidado ↔ anfitrião, validação de IP/porta/código, erros `refused`, `timeout`, `port_in_use`, mensagens sem IP (servidor LAN real em 127.0.0.1, sem WebRTC) | 28/28 |
 | `test/jam/transport/*` | `MemoryPeerLink` (queda, reconexão, corrupção, buffer) e negociação da `PeerLinkFactory` com sessão falsa | 11/11 |
-| `test/player/*` | Fila de reprodução | 6/6 |
+| `test/player/*` | Fila de reprodução; `JustAudioLocalPlayer` com motor falso (status, avanço automático, anterior/reinício, velocidade, arquivo ilegível, erro tocando, todas ilegíveis, próxima concorrente, posição) | 21/21 |
 | `test/metrics/*` | Saneamento de IPv4, IPv6, caminhos, e-mails e stack traces | 6/6 |
-| `test/lab/*` | Estatísticas do monitor (sucessos, falhas, RTT, intervalos, tela apagada, serviço, CSV) e abertura da tela do lab | 9/9 |
+| `test/lab/*` | Estatísticas do monitor, abertura do lab de conexão e tela do lab do player (fila, transporte, velocidade, seek, player sobrevive à tela) | 14/14 |
 
 ## Problemas encontrados
 
