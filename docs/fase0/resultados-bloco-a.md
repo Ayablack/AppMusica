@@ -65,13 +65,15 @@ As mensagens mostradas ao usuário e o log não incluem IPs. Erros não tratados
 | S25 (anfitrião) | S25 (o próprio) | 107 | 0 | sim, 138 s (69 respostas, 0 falhas) | geral 27 ms, máx. 59 ms | 59 ms | 2,0 s | 2,0 s | sim |
 | S25 (anfitrião) | A53 | 85 | 0 | — (tela do A53 acesa) | 64 / 68 / 56 ms | 171 ms | 2,0 s | 2,0 s | sim |
 | A53 (convidado) | S25 | 80 | 0 | — (tela do S25 acesa) | 28 / 33 / 25 ms | 405 ms | 2,0 s | 2,0 s | sim |
-| A53 (convidado) | A53 (o próprio) | — | 0 registradas no log | sim, 120 s (log do A53: APAGADA 06:01 → ACESA 08:01) | resumo pendente: A53 ficou na tela de bloqueio | — | — | — | — |
+| A53 (convidado) | A53 (o próprio) | 1389 em 46 min | 0 | sim, 2716 s (~45 min: os 2 min do teste e mais ~43 min depois, na tela de bloqueio) | 55 ms acesa / 64 ms apagada | 783 ms (4 de 1357 acima de 300 ms; p99 218 ms) | 2,0 s | 2,0 s | sim |
 
-**Conclusão parcial:** com a tela apagada por 2 min, nos dois modelos, a conexão continuou sem nenhuma falha de ping, o serviço em primeiro plano ficou ativo e o timer do app não atrasou (envios a cada 2,0 s). O RTT com a tela apagada teve picos (até 405 ms no A53), sem perda.
+**Teste longo (não planejado).** O monitor do A53 continuou rodando depois do teste, até o aparelho ser desbloqueado: **46 min, 1389 pings, 0 falhas**, com a tela apagada confirmada por ~45 min. No mesmo período, o app do S25 (anfitrião) ficou ~33 min em segundo plano (`paused`, de 19:31 a 52:27 no relógio do S25) e respondeu todos os pings. O estado da tela do S25 nesse trecho não foi medido (o monitor dele estava desligado). Evidência: `2026-10-22-monitor-a53-proprio-apagado-45min.txt`.
+
+**Conclusão parcial:** com a tela apagada por 2 min nos dois modelos, e por ~45 min no A53, a conexão continuou sem nenhuma falha de ping, o serviço em primeiro plano ficou ativo e o timer do app não atrasou (envios a cada 2,0 s). O RTT com a tela apagada teve picos (até 405 ms no A53), sem perda.
 
 **Ressalvas:**
 - A depuração sem fio (adb por Wi-Fi) estava ligada nos dois aparelhos e tende a manter o Wi-Fi mais acordado. Falta confirmar o mesmo resultado com a depuração desligada.
-- Otimização de bateria no padrão (ativa); não foi preciso desativá-la nesses 2 min. Períodos longos (30 min ou mais) ainda não foram testados.
+- Otimização de bateria no padrão (ativa); não foi preciso desativá-la. O período longo (~45 min) foi medido só com o A53 apagado e com a depuração sem fio ligada.
 - O RTT do monitor (~30–70 ms) é maior que o do teste isolado (14–16 ms) porque os dois monitores e as leituras de tela por adb rodavam juntos.
 
 ## Resultados simulados
