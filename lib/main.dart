@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'lab/connection_lab_page.dart';
+
 void main() {
   runApp(const AppMusica());
 }
@@ -46,6 +48,15 @@ class TelaInicial extends StatelessWidget {
                 'Protótipo experimental. Nenhuma função de música disponível ainda.',
                 style: textTheme.bodyMedium,
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ConnectionLabPage(),
+                  ),
+                ),
+                child: const Text('Laboratório: conexão'),
               ),
             ],
           ),
