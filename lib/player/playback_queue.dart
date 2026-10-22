@@ -3,8 +3,8 @@ import 'track.dart';
 /// Lógica pura de navegação na fila, sem reprodução.
 class PlaybackQueue {
   PlaybackQueue(List<Track> tracks, {int startIndex = 0})
-      : tracks = List.unmodifiable(tracks),
-        _index = startIndex {
+    : tracks = List.unmodifiable(tracks),
+      _index = startIndex {
     if (tracks.isNotEmpty) RangeError.checkValidIndex(startIndex, tracks);
   }
 

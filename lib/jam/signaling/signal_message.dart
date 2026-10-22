@@ -38,8 +38,9 @@ class SignalMessage {
     final from = json['from'];
     final to = json['to'];
     final payload = json['payload'] ?? const <String, Object?>{};
-    if (type == null)
+    if (type == null) {
       throw FormatException('tipo de sinalização inválido: $typeName');
+    }
     if (from is! String || (to != null && to is! String) || payload is! Map) {
       throw const FormatException('mensagem de sinalização malformada');
     }

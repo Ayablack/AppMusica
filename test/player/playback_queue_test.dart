@@ -3,9 +3,9 @@ import 'package:appmusica/player/track.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 List<Track> _tracks(int n) => List.generate(
-      n,
-      (i) => Track(id: 't$i', uri: 'file:///musica$i.mp3', title: 'Faixa $i'),
-    );
+  n,
+  (i) => Track(id: 't$i', uri: 'file:///musica$i.mp3', title: 'Faixa $i'),
+);
 
 void main() {
   test('moveNext avança e retorna false no fim', () {
