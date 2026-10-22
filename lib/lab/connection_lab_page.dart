@@ -44,6 +44,16 @@ class _ConnectionLabPageState extends State<ConnectionLabPage> {
 
   bool get _active => _factory != null;
 
+  /// Eventos de rede chegam depois de a tela fechar; só redesenha se ela existe.
+  @override
+  void setState(VoidCallback fn) {
+    if (mounted) {
+      super.setState(fn);
+    } else {
+      fn();
+    }
+  }
+
   void _add(String line) {
     final t = _clock.elapsed;
     final stamp =
