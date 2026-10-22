@@ -42,9 +42,38 @@ class JustAudioEngine implements AudioEngine {
   final _errors = StreamController<Object>.broadcast();
   late final StreamSubscription<PlaybackEvent> _eventSub;
 
+  /// Prazo máximo para abrir um arquivo local.
+  static const loadTimeout = Duration(seconds: 10);
+
+  /// O `just_audio_media_kit` 2.1.0 espera um evento de duração para
+  /// concluir o `load`; quando o libmpv recusa o arquivo, esse evento nunca
+  /// vem e o `load` não termina. Por isso a carga também falha se o estado
+  /// cair para `idle` depois de `loading`, se chegar um erro, ou no prazo.
   @override
-  Future<Duration?> load(String uri) =>
-      _player.setAudioSource(AudioSource.uri(Uri.parse(uri)));
+  Future<Duration?> load(String uri) async {
+    final failed = Completer<Duration?>();
+    void fail(Object reason) {
+      if (!failed.isCompleted) failed.completeError(reason);
+    }
+
+    var sawLoading = false;
+    final stateSub = _player.processingStateStream.listen((s) {
+      if (s == ProcessingState.loading) sawLoading = true;
+      if (s == ProcessingState.idle && sawLoading) {
+        fail(StateError('o decodificador recusou o arquivo'));
+      }
+    });
+    final errorSub = _errors.stream.listen(fail);
+    try {
+      return await Future.any([
+        _player.setAudioSource(AudioSource.uri(Uri.parse(uri))),
+        failed.future,
+      ]).timeout(loadTimeout);
+    } finally {
+      await stateSub.cancel();
+      await errorSub.cancel();
+    }
+  }
 
   @override
   Future<void> play() async {
