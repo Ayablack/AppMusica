@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "io.github.ayablack" "\0"
-            VALUE "FileDescription", "appmusica" "\0"
+            VALUE "CompanyName", "Ayablack" "\0"
+            VALUE "FileDescription", "AppMusica" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "appmusica" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 io.github.ayablack. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Ayablack. Licensed under GPL-3.0." "\0"
             VALUE "OriginalFilename", "appmusica.exe" "\0"
-            VALUE "ProductName", "appmusica" "\0"
+            VALUE "ProductName", "AppMusica" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
