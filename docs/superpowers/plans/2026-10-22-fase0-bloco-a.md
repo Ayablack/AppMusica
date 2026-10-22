@@ -68,6 +68,19 @@
 
 ---
 
+## M3 — plano aprovado em 2026-10-22 (vale sobre as Tasks 2–6)
+
+**Ordem:** M3.1 player local → M3.2 sessão Android → M3.3 prova de conceito SMTC isolada → M3.4 ciclo de vida e interrupções → M3.5 métricas JSONL. DHU fica fora do M3.
+
+**M3.1 — critérios de seek (definição exata dos eventos):**
+- **Latência da API de seek:** começa imediatamente antes da chamada `LocalPlayer.seek(alvo)` e termina quando o `Future` devolvido completa. Critério: **p95 ≤ 100 ms**, 10 seeks por formato (MP3 CBR, MP3 VBR, FLAC, M4A, WAV), com o player pausado e tocando.
+- **Tempo até a posição informada se acomodar:** mesmo início; termina na primeira leitura de `LocalPlayer.position` (lida a cada 10 ms) dentro de ±50 ms do alvo (pausado) ou dentro de [alvo, alvo + 250 ms] (tocando). Critério: **p95 ≤ 250 ms**.
+- **Erro da posição informada:** |`LocalPlayer.position` − alvo| 300 ms após o `Future` do seek completar, pausado. Critério: **p95 ≤ 50 ms** (MP3 VBR medido e registrado à parte).
+- **Limitação:** as três medidas usam a posição **informada pelo player**, não o áudio que sai do alto-falante. Elas medem latência e coerência da API, **não precisão acústica**. A precisão acústica do seek fica para o teste S8 (gravação por microfone, Bloco B).
+- Demais critérios do M3.1: avanço automático entre faixas; arquivo ilegível vira status `error` e é pulado sem travar; taxa a 1,02× entre 1,00 e 1,04.
+
+**M3.3 — prova de conceito SMTC:** branch própria `poc/smtc-audio-service-win` (depois `poc/smtc-flutter-media-session`, cortada da `fase0/bloco-a`, só se a primeira falhar), versões exatas, um plugin por vez, sem merge sem aprovação. Se as duas falharem, parar e apresentar alternativas.
+
 ## Decisões e comparações
 
 ### Player: pacotes
