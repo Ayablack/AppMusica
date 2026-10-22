@@ -27,9 +27,12 @@ const formats = {
 
 final results = <String, Map<String, Object>>{};
 
-Future<void> waitPlaying(AudioPlayer p) => p.playerStateStream.firstWhere(
-  (s) => s.playing && s.processingState == ProcessingState.ready,
-);
+/// Nenhum teste de integração pode travar a máquina: limite total por teste.
+const testLimit = Timeout(Duration(minutes: 2));
+
+Future<void> waitPlaying(AudioPlayer p) => p.playerStateStream
+    .firstWhere((s) => s.playing && s.processingState == ProcessingState.ready)
+    .timeout(const Duration(seconds: 10));
 
 /// Avanço da posição reportada em [window] de relógio, dividido pelo relógio.
 Future<({int driftMs, double rate})> measureAdvance(
@@ -116,7 +119,9 @@ Future<double> renderedFrequency(
   await native.setProperty('ao', 'pcm');
   // Controle: sem correção, mudar a velocidade tem que mudar o tom.
   if (!pitch) await native.setProperty('audio-pitch-correction', 'no');
-  await player.open(mk.Media(source), play: false);
+  await player
+      .open(mk.Media(source), play: false)
+      .timeout(const Duration(seconds: 10));
   await player.setRate(rate);
   await player.play();
   await Future<void>.delayed(const Duration(seconds: 4));
@@ -150,7 +155,9 @@ void main() {
       final p = AudioPlayer();
       addTearDown(p.dispose);
 
-      final loaded = await p.setFilePath('$mediaDir/${entry.value}');
+      final loaded = await p
+          .setFilePath('$mediaDir/${entry.value}')
+          .timeout(const Duration(seconds: 10));
       r['duracaoMs'] = loaded?.inMilliseconds ?? -1;
 
       // 1. Posição reportada × relógio a 1,0×.
@@ -164,7 +171,7 @@ void main() {
       final errors = <int>[];
       for (var i = 0; i < 10; i++) {
         final target = Duration(milliseconds: 4000 + i * 4700);
-        await p.seek(target);
+        await p.seek(target).timeout(const Duration(seconds: 5));
         await Future<void>.delayed(const Duration(milliseconds: 300));
         errors.add((p.position - target).inMilliseconds.abs());
       }
@@ -194,7 +201,7 @@ void main() {
         );
       }
       expect(fast.rate, inInclusiveRange(1.00, 1.04));
-    });
+    }, timeout: testLimit);
   }
 
   testWidgets('player Windows: tom preservado a 1,02×', (tester) async {
@@ -211,7 +218,7 @@ void main() {
       inInclusiveRange(990, 1010),
       reason: 'a 1,02× o tom mudou (tom alterado ficaria perto de 1020 Hz)',
     );
-  });
+  }, timeout: testLimit);
 
   testWidgets(
     'controle: sem correção de tom a 1,02× a medição acusa ~1020 Hz',
@@ -228,5 +235,6 @@ void main() {
             'a medição não detecta mudança de tom; resultado do tom não vale',
       );
     },
+    timeout: testLimit,
   );
 }

@@ -16,6 +16,9 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+/// Nenhum teste de integração pode travar a máquina: limite total por teste.
+const testLimit = Timeout(Duration(minutes: 2));
+
 final _clock = Stopwatch()..start();
 
 /// Registro com tempo, para achar onde trava.
@@ -127,5 +130,5 @@ void main() {
     await limit(host.dispose(), 'dispose anfitrião');
     await server.stop();
     step('fim');
-  });
+  }, timeout: testLimit);
 }
