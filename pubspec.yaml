@@ -39,7 +39,6 @@ dependencies:
   just_audio_media_kit: ^2.1.0
   media_kit_libs_windows_audio: ^1.0.9
   path_provider: ^2.1.6
-  smtc_windows: ^1.1.0
   uuid: ^4.6.0
 
 
@@ -53,6 +52,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
+  media_kit: 1.2.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
