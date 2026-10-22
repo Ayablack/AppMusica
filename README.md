@@ -34,13 +34,27 @@ O resultado da Fase 0 pode confirmar a arquitetura ou exigir mudanças. Detalhes
 
 ## Como rodar
 
-Ainda não há código executável. Esta seção será preenchida quando o protótipo da Fase 0 existir.
+Por enquanto existe só um esqueleto: o app abre uma tela informando que é a Fase 0. Não há player nem Jam.
 
-Requisitos previstos:
+Requisitos:
 
-- Flutter (canal stable)
-- Android SDK, para builds Android
+- Flutter 3.47.2 (canal stable), a mesma versão usada no CI
+- Android SDK e JDK 17 ou superior, para builds Android
 - Visual Studio com a carga de trabalho "Desenvolvimento para desktop com C++", para builds Windows
+
+Comandos:
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run -d windows
+flutter build apk --debug
+```
+
+## Integração contínua
+
+Cada push e pull request roda o workflow [CI](.github/workflows/ci.yml): `flutter analyze`, `flutter test`, build do APK de debug e build do Windows. O APK e a pasta do Windows ficam disponíveis como **artefatos do workflow** por 14 dias. Eles não são releases: o APK é assinado com chave de debug e serve só para validação.
 
 ## Segurança
 
