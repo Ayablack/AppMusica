@@ -33,6 +33,7 @@ class JustAudioLocalPlayer implements LocalPlayer {
   EngineState _engineState = EngineState.idle;
   PlayerStatus _current = PlayerStatus.idle;
   Track? _emittedTrack;
+  Duration? _duration;
 
   /// Cada carga recebe um número; uma carga antiga que termina depois de
   /// outra mais nova é ignorada (vale o último pedido).
@@ -57,6 +58,8 @@ class JustAudioLocalPlayer implements LocalPlayer {
   List<Track> get queue => _queue.tracks;
   @override
   Duration get position => _engine.position;
+  @override
+  Duration? get duration => _duration;
 
   @override
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
@@ -111,8 +114,10 @@ class JustAudioLocalPlayer implements LocalPlayer {
       _emitTrack(track);
       _started = false;
       _ended = false;
+      _duration = track.duration;
       try {
-        await _engine.load(track.uri);
+        final loaded = await _engine.load(track.uri);
+        if (generation == _generation) _duration = loaded ?? track.duration;
       } on Object {
         if (generation != _generation) return;
         _failed = true;

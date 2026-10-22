@@ -6,15 +6,18 @@ import 'lab/lab_errors.dart';
 import 'lab/player_lab_page.dart';
 import 'player/just_audio_local_player.dart';
 import 'player/local_player.dart';
+import 'player/session/media_session.dart';
 
 /// Player do app (um só); variável global, criada no primeiro uso. Pertence ao app, não às
 /// telas: sair de uma tela não para a música.
 final LocalPlayer appPlayer = JustAudioLocalPlayer();
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   LabErrors.install();
   // Windows usa libmpv; Android continua no ExoPlayer do just_audio.
   JustAudioMediaKit.ensureInitialized(windows: true, android: false);
+  await createMediaSession().attach(appPlayer);
   runApp(const AppMusica());
 }
 

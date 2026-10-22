@@ -189,6 +189,12 @@ void main() {
     expect(p, const Duration(seconds: 7));
   });
 
+  test('duration vem do motor ao carregar a faixa', () async {
+    await player.setQueue(tracks(1));
+
+    expect(player.duration, const Duration(minutes: 3));
+  });
+
   test('dispose libera o motor', () async {
     await player.dispose();
     expect(engine.calls, contains('dispose'));

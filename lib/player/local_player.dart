@@ -19,6 +19,9 @@ abstract class LocalPlayer {
   Stream<Track?> get currentTrackStream;
 
   Duration get position;
+
+  /// Duração da faixa atual, conhecida depois de carregada.
+  Duration? get duration;
   PlayerStatus get status;
   Track? get currentTrack;
   List<Track> get queue;
