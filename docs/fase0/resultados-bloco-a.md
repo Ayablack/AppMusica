@@ -35,11 +35,14 @@ Dois pares WebRTC nativos (`flutter_webrtc`) no mesmo processo Windows, sinaliza
 
 Conexão S25 ↔ A53 na mesma rede Wi-Fi, **bem-sucedida nos dois sentidos** (relato do dono do projeto, 2026-10-22). Os números detalhados ainda não foram registrados aqui; o teste de tela desligada foi refeito com o monitor revisado (abaixo).
 
-| Anfitrião | Convidado | Conectou? | Tempo | Par ICE | RTT mediano | 1 MiB | Integridade | Observações |
+Aparelhos: **S25** SM-S931B, Android 16, One UI 8.5 · **A53** SM-A536E, Android 16, One UI 8.0. Rede Wi-Fi doméstica. Medição de 2026-10-22, conduzida por adb sem fio (APK `c05b808`), otimização de bateria no padrão (ativa).
+
+| Anfitrião | Convidado | Conectou | Tempo até conectar | Par ICE | Sentido | RTT mediano | 1 MiB | Integridade |
 |---|---|---|---|---|---|---|---|---|
-| S25 | A53 | | | | | | | |
-| A53 | S25 | | | | | | | |
-| S25 (tela desligada 2 min) | A53 | | | | | | | |
+| S25 | A53 | sim | 515 ms (S25) / 461 ms (A53) | prflx/prflx | S25 → A53 | 16 ms | 183 ms (5,5 MB/s) | SHA-256 confere |
+| S25 | A53 | sim | (mesma conexão) | prflx/prflx | A53 → S25 | 14 ms | 204 ms (4,9 MB/s) | SHA-256 confere |
+
+`prflx/prflx`: cada lado descobriu o outro pela checagem de conectividade (os candidatos `host` do WebRTC no Android usam nomes mDNS `.local`). A conexão é direta na rede local, sem servidor no meio.
 
 ### Revisão do M2 (2026-10-22)
 
@@ -55,12 +58,21 @@ As mensagens mostradas ao usuário e o log não incluem IPs. Erros não tratados
 
 **Monitor de tela desligada revisado:** um ping a cada 2 s por convidado, prazo de 3 s, em sequência. Registra cada ping (sucesso ou falha, RTT), o estado real da tela (`PowerManager.isInteractive`) e se o serviço em primeiro plano estava ativo. Resumo: enviados, respostas, falhas, RTT mediano e máximo, maior intervalo sem resposta, maior atraso entre envios, tempo com a tela apagada confirmada e respostas e falhas nesse período. Exporta CSV.
 
-**Pendente (aparelhos):** repetir o teste de tela desligada com o monitor revisado, apagando a tela do S25 e depois a do A53.
+**Teste de tela apagada (real, 2026-10-22).** Monitor nos dois aparelhos ao mesmo tempo; 20 s com as telas acesas, tela de um aparelho apagada por 2 min (`KEYCODE_SLEEP`, o mesmo efeito do botão lateral), depois acesa. O estado da tela vem do próprio aparelho (`PowerManager.isInteractive`) e foi conferido também por `dumpsys power` (`Dozing`).
 
-| Aparelho com a tela apagada | Monitor rodando em | Tela apagada confirmada | Tempo apagada | Respostas / falhas com a tela apagada | RTT máximo | Maior intervalo sem resposta | Serviço ativo o tempo todo |
-|---|---|---|---|---|---|---|---|
-| S25 | S25 e A53 | | | | | | |
-| A53 | S25 e A53 | | | | | | |
+| Tela apagada | Medido por | Pings | Falhas | Tela apagada confirmada | RTT mediano antes / apagada / depois | RTT máx. com a tela apagada | Maior intervalo sem resposta | Maior atraso entre envios | Serviço ativo o tempo todo |
+|---|---|---|---|---|---|---|---|---|---|
+| S25 (anfitrião) | S25 (o próprio) | 107 | 0 | sim, 138 s (69 respostas, 0 falhas) | geral 27 ms, máx. 59 ms | 59 ms | 2,0 s | 2,0 s | sim |
+| S25 (anfitrião) | A53 | 85 | 0 | — (tela do A53 acesa) | 64 / 68 / 56 ms | 171 ms | 2,0 s | 2,0 s | sim |
+| A53 (convidado) | S25 | 80 | 0 | — (tela do S25 acesa) | 28 / 33 / 25 ms | 405 ms | 2,0 s | 2,0 s | sim |
+| A53 (convidado) | A53 (o próprio) | — | 0 registradas no log | sim, 120 s (log do A53: APAGADA 06:01 → ACESA 08:01) | resumo pendente: A53 ficou na tela de bloqueio | — | — | — | — |
+
+**Conclusão parcial:** com a tela apagada por 2 min, nos dois modelos, a conexão continuou sem nenhuma falha de ping, o serviço em primeiro plano ficou ativo e o timer do app não atrasou (envios a cada 2,0 s). O RTT com a tela apagada teve picos (até 405 ms no A53), sem perda.
+
+**Ressalvas:**
+- A depuração sem fio (adb por Wi-Fi) estava ligada nos dois aparelhos e tende a manter o Wi-Fi mais acordado. Falta confirmar o mesmo resultado com a depuração desligada.
+- Otimização de bateria no padrão (ativa); não foi preciso desativá-la nesses 2 min. Períodos longos (30 min ou mais) ainda não foram testados.
+- O RTT do monitor (~30–70 ms) é maior que o do teste isolado (14–16 ms) porque os dois monitores e as leituras de tela por adb rodavam juntos.
 
 ## Resultados simulados
 
