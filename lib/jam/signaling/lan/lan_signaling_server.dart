@@ -14,6 +14,7 @@ import '../signaling_channel.dart';
 class LanSignalingServer {
   LanSignalingServer._(
     this._http,
+    this.port,
     this.roomCode,
     this.maxParticipants,
     this.helloTimeout,
@@ -38,7 +39,8 @@ class LanSignalingServer {
   final _random = Random.secure();
   late final _host = _HostChannel(this);
 
-  int get port => _http.port;
+  /// Guardada ao abrir: continua legível depois de [stop].
+  final int port;
   SignalingChannel get hostChannel => _host;
 
   static String generateRoomCode() {
@@ -65,6 +67,7 @@ class LanSignalingServer {
     }
     final server = LanSignalingServer._(
       http,
+      http.port,
       generateRoomCode(),
       maxParticipants,
       helloTimeout,

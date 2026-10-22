@@ -26,6 +26,15 @@ void main() {
     roomCode: code ?? server.roomCode,
   );
 
+  test('port continua legível depois de stop', () async {
+    final port = server.port;
+
+    await server.stop();
+
+    // A tela ainda pode se redesenhar durante o encerramento.
+    expect(server.port, port);
+  });
+
   test('roomCode tem 8 caracteres do alfabeto permitido', () {
     final allowed = RegExp(r'^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$');
     for (var i = 0; i < 1000; i++) {

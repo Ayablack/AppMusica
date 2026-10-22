@@ -51,9 +51,11 @@ class _ConnectionLabPageState extends State<ConnectionLabPage>
   bool get _active => _factory != null;
 
   /// Eventos de rede chegam depois de a tela fechar; só redesenha se ela existe.
+  bool _disposed = false;
+
   @override
   void setState(VoidCallback fn) {
-    if (mounted) {
+    if (mounted && !_disposed) {
       super.setState(fn);
     } else {
       fn();
@@ -65,6 +67,7 @@ class _ConnectionLabPageState extends State<ConnectionLabPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     LabErrors.lines.addListener(_onUnhandledError);
+    _stopStaleService();
   }
 
   @override
@@ -224,20 +227,34 @@ class _ConnectionLabPageState extends State<ConnectionLabPage>
   }
 
   Future<void> _stop() async {
-    _monitoring = false;
-    await _factory?.dispose();
-    if (_server == null) await _signal?.close();
-    await _server?.stop();
+    // Limpa o estado antes de fechar: a tela pode se redesenhar no meio.
+    final factory = _factory, server = _server, signal = _signal;
+    setState(() {
+      _monitoring = false;
+      _factory = null;
+      _server = null;
+      _signal = null;
+      _probes.clear();
+    });
+    await factory?.dispose();
+    if (server == null) await signal?.close();
+    await server?.stop();
     await JamKeepAlive.stop();
-    _factory = null;
-    _server = null;
-    _signal = null;
-    _probes.clear();
     _add('sessão encerrada');
+  }
+
+  /// Serviço em primeiro plano que sobrou de uma sessão anterior (app
+  /// fechado sem "Encerrar") segura Wi-Fi e CPU à toa.
+  Future<void> _stopStaleService() async {
+    if (await JamKeepAlive.isRunning() == true) {
+      await JamKeepAlive.stop();
+      _add('serviço em primeiro plano de sessão anterior encerrado');
+    }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     LabErrors.lines.removeListener(_onUnhandledError);
     _stop();
