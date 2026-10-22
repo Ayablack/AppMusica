@@ -1,0 +1,94 @@
+# ============================================================
+# SEGREDOS E CREDENCIAIS — nunca versionar
+# Use os arquivos *.example como modelo, sem valores reais.
+# ============================================================
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Firebase (configuração do projeto real)
+google-services.json
+GoogleService-Info.plist
+lib/firebase_options.dart
+firebase/.firebaserc
+.firebaserc
+firebase-debug.log
+database-debug.log
+*-firebase-adminsdk-*.json
+service-account*.json
+
+# Cloudflare Workers
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler/
+
+# Assinatura Android
+*.jks
+*.keystore
+key.properties
+android/key.properties
+
+# Chaves e certificados
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ============================================================
+# Flutter / Dart
+# ============================================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+*.g.dart.tmp
+
+# Android
+android/.gradle/
+android/captures/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+*.iml
+.gradle/
+
+# Windows
+windows/flutter/ephemeral/
+*.obj
+*.pdb
+
+# IDEs e sistema
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node (Worker)
+node_modules/
+
+# ============================================================
+# Fase 0 — dados de teste locais
+# ============================================================
+# Arquivos de música usados nos testes (direito autoral)
+test_media/
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.opus
+*.wav
+# Gravações acústicas brutas
+docs/fase0/evidencias/gravacoes/
+
+# Claude Code (configuração local)
+.claude/settings.local.json
