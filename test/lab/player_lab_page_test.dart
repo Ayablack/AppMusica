@@ -13,6 +13,9 @@ void main() {
     MaterialApp(
       home: PlayerLabPage(
         player: player,
+        loadTestTracks: () async => [
+          Track(id: 'x', uri: 'file:///x.mp3', title: 'Teste X'),
+        ],
         pickTracks: () async => [
           Track(id: 'a', uri: 'file:///a.mp3', title: 'Primeira'),
           Track(id: 'b', uri: 'file:///b.mp3', title: 'Segunda'),
@@ -33,6 +36,16 @@ void main() {
 
     expect(player.calls, contains('setQueue:2'));
     expect(find.text('Primeira'), findsWidgets);
+  });
+
+  testWidgets('carregar arquivos de teste monta a fila', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('Carregar arquivos de teste'));
+    await tester.pumpAndSettle();
+
+    expect(player.calls, contains('setQueue:1'));
+    expect(find.text('Teste X'), findsWidgets);
   });
 
   testWidgets('botões de transporte chamam o player', (tester) async {

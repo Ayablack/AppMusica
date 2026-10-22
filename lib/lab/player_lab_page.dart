@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../player/local_player.dart';
 import '../player/track.dart';
@@ -23,6 +26,28 @@ Future<List<Track>> pickAudioTracks() async {
   ];
 }
 
+/// Arquivos copiados por `adb push` para a pasta privada do app
+/// (Android: `Android/data/<app>/files/teste`), sem permissão de
+/// armazenamento. Só para testes automatizados no aparelho.
+Future<List<Track>> loadDeviceTestTracks() async {
+  final base = Platform.isAndroid
+      ? await getExternalStorageDirectory()
+      : await getApplicationSupportDirectory();
+  if (base == null) return const [];
+  final dir = Directory('${base.path}${Platform.pathSeparator}teste');
+  if (!dir.existsSync()) return const [];
+  final files = dir.listSync().whereType<File>().toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+  return [
+    for (final f in files)
+      Track(
+        id: f.uri.pathSegments.last,
+        uri: f.uri.toString(),
+        title: f.uri.pathSegments.last.replaceFirst(RegExp(r'\.[^.]+$'), ''),
+      ),
+  ];
+}
+
 /// Laboratório do player local (descartável, Fase 0).
 ///
 /// O player é do app, não da tela: sair da tela não para a música, como
@@ -32,10 +57,12 @@ class PlayerLabPage extends StatefulWidget {
     super.key,
     required this.player,
     this.pickTracks = pickAudioTracks,
+    this.loadTestTracks = loadDeviceTestTracks,
   });
 
   final LocalPlayer player;
   final Future<List<Track>> Function() pickTracks;
+  final Future<List<Track>> Function() loadTestTracks;
 
   @override
   State<PlayerLabPage> createState() => _PlayerLabPageState();
@@ -62,9 +89,14 @@ class _PlayerLabPageState extends State<PlayerLabPage> {
 
   void _add(String line) => setState(() => _log.add(line));
 
-  Future<void> _pick() async {
-    final tracks = await widget.pickTracks();
-    if (tracks.isEmpty) return;
+  Future<void> _pick() => _load(widget.pickTracks);
+
+  Future<void> _load(Future<List<Track>> Function() source) async {
+    final tracks = await source();
+    if (tracks.isEmpty) {
+      _add('nenhum arquivo encontrado');
+      return;
+    }
     _add('fila com ${tracks.length} faixas');
     await _player.setQueue(tracks);
     setState(() {});
@@ -132,7 +164,20 @@ class _PlayerLabPageState extends State<PlayerLabPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          FilledButton(onPressed: _pick, child: const Text('Escolher músicas')),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton(
+                onPressed: _pick,
+                child: const Text('Escolher músicas'),
+              ),
+              OutlinedButton(
+                onPressed: () => _load(widget.loadTestTracks),
+                child: const Text('Carregar arquivos de teste'),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           Text(
             _player.currentTrack?.title ?? 'nenhuma faixa',
