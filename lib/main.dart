@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
 import 'lab/connection_lab_page.dart';
 import 'lab/lab_errors.dart';
+import 'lab/player_lab_page.dart';
+import 'player/just_audio_local_player.dart';
+import 'player/local_player.dart';
+
+/// Player do app (um só); variável global, criada no primeiro uso. Pertence ao app, não às
+/// telas: sair de uma tela não para a música.
+final LocalPlayer appPlayer = JustAudioLocalPlayer();
 
 void main() {
   LabErrors.install();
+  // Windows usa libmpv; Android continua no ExoPlayer do just_audio.
+  JustAudioMediaKit.ensureInitialized(windows: true, android: false);
   runApp(const AppMusica());
 }
 
@@ -59,6 +69,15 @@ class TelaInicial extends StatelessWidget {
                   ),
                 ),
                 child: const Text('Laboratório: conexão'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PlayerLabPage(player: appPlayer),
+                  ),
+                ),
+                child: const Text('Laboratório: player'),
               ),
             ],
           ),
